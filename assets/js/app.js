@@ -20,6 +20,7 @@ const DEFAULT = {
   levels: { facil: { served: 0, best: 0, stars: 0, done: false }, medio: { served: 0, best: 0, stars: 0, done: false }, alto: { served: 0, best: 0, stars: 0, done: false } },
   shift: null, // { level, idx }
   tech: {}, // { [tech]: { ok, tries } }
+  guide: { picks: 0 }, // aciertos totales: con pocos, la guía visual es más insistente
 };
 let S;
 try { S = { ...structuredClone(DEFAULT), ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { S = structuredClone(DEFAULT); }
@@ -82,6 +83,61 @@ const I = {
 };
 const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${I[n]}</svg>`;
 const starIcon = (filled) => `<svg class="ic star ${filled ? 'on' : ''}" viewBox="0 0 24 24" aria-hidden="true">${I.star}</svg>`;
+
+/* ---------------- guía visual: dónde tocar ----------------
+   Una mano que toca y un anillo que late señalan qué se puede tocar.
+   Novato: la mano recorre las opciones (sin delatar la correcta).
+   Con experiencia: solo un saltito de las opciones si pasa un rato sin tocar. */
+const HAND = `<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><circle class="ripple" cx="15" cy="5.5" r="4"/><path class="palm" d="M13 18V7.5a2 2 0 0 1 4 0V13a2 2 0 0 1 4 0v1a2 2 0 0 1 4 0v6c0 4.6-3.4 8-8 8h-1.2c-2.7 0-4.6-1.2-6-3.3l-4.2-6.1a2 2 0 0 1 3.2-2.4L13 20z"/><path d="M17 13v3M21 14v2.5"/></svg>`;
+const G = { timers: [] };
+const isNovice = () => (S.guide?.picks || 0) < 5;
+function stopGuide() {
+  G.timers.forEach((t) => clearTimeout(t)); G.timers = [];
+  $$('.guide-hand').forEach((h) => h.remove());
+  $$('.guide-on').forEach((e) => e.classList.remove('guide-on'));
+}
+function handOn(el) {
+  $$('.guide-hand').forEach((h) => h.remove());
+  if (!el || !el.isConnected) return;
+  const h = document.createElement('span');
+  h.className = 'guide-hand'; h.setAttribute('aria-hidden', 'true'); h.innerHTML = HAND;
+  el.appendChild(h);
+}
+function bob(el, i = 0) {
+  if (reduced() || !el.animate) return;
+  el.animate([{ translate: '0 0' }, { translate: '0 -8px' }, { translate: '0 0' }, { translate: '0 -3px' }, { translate: '0 0' }], { duration: 650, delay: i * 120, easing: 'ease-out' });
+}
+/* un solo objetivo: anillo que late + mano */
+function guideNext(el, { hand = true, scroll = false } = {}) {
+  stopGuide();
+  if (!el) return;
+  el.classList.add('guide-on');
+  if (hand) handOn(el);
+  bob(el);
+  if (scroll) setTimeout(() => el.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' }), 60);
+}
+/* un grupo de opciones */
+function guideGroup(box, sel, { strong = isNovice(), idle = 8000 } = {}) {
+  stopGuide();
+  if (!box) return;
+  const items = () => $$(sel, box).filter((b) => !b.disabled && b.isConnected);
+  const wave = () => items().forEach((b, i) => bob(b, i));
+  if (strong) {
+    let k = 0;
+    const step = () => {
+      const it = items();
+      if (!it.length || !box.isConnected) { stopGuide(); return; }
+      if (k % it.length === 0) wave();
+      handOn(it[k % it.length]); k++;
+      if (!reduced()) G.timers.push(setTimeout(step, 1500));
+    };
+    G.timers.push(setTimeout(step, 600));
+  } else {
+    const again = () => { if (!box.isConnected) return; wave(); G.timers.push(setTimeout(again, idle * 1.5)); };
+    G.timers.push(setTimeout(again, idle));
+  }
+  box.addEventListener('pointerdown', stopGuide, { once: true });
+}
 
 /* ---------------- piezas comunes ---------------- */
 const IMG = 'assets/img/';
@@ -190,6 +246,8 @@ function viewHome() {
     </div>
   </div>`;
   bindGlobal(app);
+  // primera visita: señalar por dónde empezar
+  if (!S.apertura.done && S.served === 0) setTimeout(() => guideNext($('.home-actions .btn.primary')), 900);
 }
 
 /* =========================================================================
@@ -296,6 +354,7 @@ function viewPedido() {
       <section class="col-side">
         <div class="tray">
           ${mentor('', 'base')}
+          <p class="guide-tip" id="gtip" hidden><span class="gt-hand" aria-hidden="true">${HAND}</span><span>Toca la opción que va en el <span class="mini-slot">?</span> <small>o arrástrala</small></span></p>
           <div class="options" id="options" role="group" aria-label="Alternativas"></div>
           <footer class="ped-foot">
             <button class="hint-btn" id="hintBtn" type="button">${icon('bulb')}<span>Pista</span></button>
@@ -385,6 +444,12 @@ async function showStep() {
   setMentor(app, s.prompt, 'base');
   renderOptions(s);
   scrollIntoViewSoft($('#ticket .slot') || $('#proc').lastElementChild);
+  // guía: al principio, insistente; luego, solo si pasa un rato sin tocar
+  const novice = isNovice();
+  $('#gtip').hidden = !novice;
+  $('.howto').hidden = novice;
+  if (slot) slot.classList.toggle('hey', novice);
+  guideGroup($('#options'), '.pill', { strong: novice });
 }
 
 function scrollIntoViewSoft(el) {
@@ -471,6 +536,7 @@ document.addEventListener('keydown', (e) => {
 /* ---------- elegir ---------- */
 async function choose(o, b, ghost = null) {
   if (P.busy || b.disabled) { if (ghost) ghost.remove(); return; }
+  stopGuide();
   const s = P.ex.steps[P.step];
   if (!o.ok) {
     P.errors++; P.stepErrors++;
@@ -485,9 +551,13 @@ async function choose(o, b, ghost = null) {
     b.disabled = true;
     b.setAttribute('aria-disabled', 'true');
     setMentor(app, o.fb || 'Revisa este paso.', 'animo');
+    // dos errores sin pedir pista: señalar el botón de pista
+    if (P.stepErrors >= 2 && P.hintLevel === 0) guideNext($('#hintBtn'), { hand: false });
     return;
   }
   P.busy = true;
+  S.guide = S.guide || { picks: 0 }; S.guide.picks++;
+  $('#gtip').hidden = true;
   sfx.ok();
   // propinas: más si fue al primer intento y sin pistas
   const gain = P.stepErrors === 0 ? (P.hintLevel === 0 ? 10 : 6) : 3;
@@ -575,6 +645,7 @@ function giveHint() {
   const s = P.ex.steps[P.step];
   if (P.hintLevel >= 4) return;
   P.hintLevel++; P.hints++;
+  $('#hintBtn')?.classList.remove('guide-on');
   if (P.mode === 'turno') S.shift.stats.hints++;
   const h = s.hints[P.hintLevel - 1];
   const text = typeof h === 'string' ? h : h.text;
@@ -626,6 +697,7 @@ async function serve() {
   $('.ped-foot')?.remove();
   const nb = $('#nextBtn');
   nb.focus({ preventScroll: true });
+  setTimeout(() => guideNext(nb, { hand: isNovice() || S.served <= 2, scroll: true }), 700);
   nb.addEventListener('click', () => {
     if (lastInShift) { location.hash = `#/fin/${P.level}`; return; }
     if (lastApertura) { S.apertura.idea = Math.max(S.apertura.idea, 3); save(); location.hash = '#/apertura/4'; return; }
@@ -715,9 +787,11 @@ function viewComandas() {
     <button class="btn primary hidden" id="nextC" type="button">${C.round >= 10 ? 'Ver resultado' : 'Siguiente comanda'} ${icon('arrow')}</button>
   </div>`;
   fitAll();
+  guideGroup($('.tech-grid'), '.tech-btn', { strong: C.round === 1 && isNovice() });
   let answered = false;
   $$('.tech-btn').forEach((b) => b.addEventListener('click', () => {
     if (answered) return;
+    stopGuide();
     const t = b.dataset.t;
     if (t === tech) {
       answered = true; C.ok++; sfx.ok();
@@ -725,6 +799,7 @@ function viewComandas() {
       setMentor(app, `Exacto. ${cue[tech]}`, 'celebra');
       $$('.tech-btn').forEach((x) => { x.disabled = true; if (x !== b) x.classList.add('dim'); });
       $('#nextC').classList.remove('hidden'); $('#nextC').focus({ preventScroll: true });
+      setTimeout(() => guideNext($('#nextC'), { hand: C.round <= 2, scroll: true }), 500);
       $('.topbar .counter span').textContent = String(C.ok);
     } else {
       sfx.bad(); b.classList.add('wrong'); b.disabled = true;
@@ -763,66 +838,90 @@ function viewApertura(n = 1) {
   return idea4();
 }
 
+/* pequeña pregunta de opciones (Apertura): una sola correcta, retroalimentación en las incorrectas */
+function miniQuiz(box, opts, { onRight, row = false } = {}) {
+  box.className = 'options' + (row ? ' row' : '');
+  box.innerHTML = opts.map((o, i) => `<button class="pill ${o.math ? '' : 'text'}" data-i="${i}" type="button"><span class="pill-body ${o.math ? 'math' : ''}">${o.math ? renderMath(o.t) : o.t}</span><span class="mark" aria-hidden="true"></span></button>`).join('');
+  $$('.pill', box).forEach((b) => b.addEventListener('click', () => {
+    if (b.disabled) return;
+    stopGuide();
+    const o = opts[Number(b.dataset.i)];
+    if (o.ok) {
+      sfx.ok(); b.classList.add('right'); b.querySelector('.mark').innerHTML = icon('check');
+      $$('.pill', box).forEach((x) => { x.disabled = true; if (x !== b) x.classList.add('dim'); });
+      S.guide = S.guide || { picks: 0 }; S.guide.picks++; save();
+      onRight?.();
+    } else {
+      sfx.bad(); b.classList.add('wrong'); b.disabled = true; b.querySelector('.mark').innerHTML = icon('x');
+      setMentor(app, o.fb, 'animo');
+    }
+  }));
+  guideGroup(box, '.pill', { strong: true });
+}
+function nextIdeaButton(after, href) {
+  after.insertAdjacentHTML('afterend', `<a class="btn primary next-idea" href="${href}">Siguiente idea ${icon('arrow')}</a>`);
+  setTimeout(() => guideNext($('.next-idea'), { scroll: true }), 500);
+}
+
 function idea1() {
-  // f(x) = (x² − 4)/(x − 2): hueco en (2, 4)
-  app.innerHTML = aperturaFrame(1, `
-    <div class="card paper explore">
-      <div class="math center big-expr" role="math" aria-label="f de x igual a x al cuadrado menos 4 entre x menos 2">${renderMath('f(x) = \\frac{x^{2} − 4}{x − 2}')}</div>
-      <svg class="graph" viewBox="0 0 320 200" role="img" aria-label="Gráfica de una recta con un hueco en x igual a 2">
-        <g class="axis"><path d="M24 176H308M36 188V10"/><text x="300" y="192">x</text><text x="40" y="18">y</text></g>
-        <g class="ticks"></g>
-        <path class="fline" d=""/>
-        <path class="guide gx" d=""/><path class="guide gy" d=""/>
-        <circle class="hole" r="6"/>
-        <circle class="pt" r="7"/>
-      </svg>
-      <div class="explore-read"><span class="math">${renderMath('x =')} <b id="xv">1.5</b></span><span class="math">${renderMath('f(x) =')} <b id="fv">3.5</b></span></div>
-      <label class="slider"><span class="sr-only">Valor de x</span><input id="xs" type="range" min="0" max="400" value="100" step="1" aria-valuetext="x = 1.5"></label>
-      <div class="table" id="tbl" role="table" aria-label="Tabla de valores"></div>
-    </div>
-    ${mentor('Mueve x hacia 2 por la izquierda y por la derecha. Mira f(x).', 'saludo')}
-    <div class="options row" id="q1"></div>`, 'Acercarse');
-  const svg = $('.graph');
-  // escala: x ∈ [0, 4] → [36, 300]; y ∈ [1, 6] → [176, 10]
-  const X = (x) => 36 + (x / 4) * 264; const Y = (y) => 176 - ((y - 1) / 5) * 166;
-  $('.fline', svg).setAttribute('d', `M${X(0)} ${Y(2)}L${X(4)} ${Y(6)}`);
-  $('.hole', svg).setAttribute('cx', X(2)); $('.hole', svg).setAttribute('cy', Y(4));
-  $('.ticks', svg).innerHTML = [1, 2, 3].map((v) => `<path d="M${X(v)} 172V180"/><text x="${X(v)}" y="194" text-anchor="middle">${v}</text>`).join('') + `<path d="M32 ${Y(4)}H40"/><text x="28" y="${Y(4) + 4}" text-anchor="end">4</text>`;
-  const fmt = (v) => (Math.round(v * 1000) / 1000).toString();
+  // f(x) = (x² − 4)/(x − 2): el concepto de límite solo con números (sin gráficas)
+  const fmt = (v) => String(Math.round(v * 1000) / 1000);
   const rows = [1.9, 1.99, 1.999, 2, 2.001, 2.01, 2.1];
-  $('#tbl').innerHTML = `<div class="tr head"><span class="math">${renderMath('x')}</span><span class="math">${renderMath('f(x)')}</span></div>` +
-    rows.map((v) => `<div class="tr ${v === 2 ? 'hole-row' : ''}" data-v="${v}"><span>${fmt(v)}</span><span>${v === 2 ? '—' : fmt(v + 2)}</span></div>`).join('');
-  const xs = $('#xs');
-  const upd = () => {
-    const x = Number(xs.value) / 100; // 0 … 4
-    const at2 = Math.abs(x - 2) < 0.005;
-    $('#xv').textContent = fmt(x);
-    $('#fv').textContent = at2 ? 'no existe' : fmt(x + 2);
-    xs.setAttribute('aria-valuetext', `x = ${fmt(x)}`);
-    const pt = $('.pt', svg);
-    pt.setAttribute('cx', X(x)); pt.setAttribute('cy', Y(x + 2)); pt.style.opacity = at2 ? 0 : 1;
-    $('.gx', svg).setAttribute('d', `M${X(x)} ${Y(x + 2)}V176`); $('.gy', svg).setAttribute('d', `M36 ${Y(x + 2)}H${X(x)}`);
-    $$('#tbl .tr[data-v]').forEach((r) => r.classList.toggle('near', Math.abs(Number(r.dataset.v) - x) < 0.06));
-    if (Math.abs(x - 2) < 0.2 && !idea1.asked) { idea1.asked = true; ask(); }
-  };
-  idea1.asked = false;
-  xs.addEventListener('input', upd);
-  upd();
+  const order = [1.9, 2.1, 1.99, 2.01, 1.999, 2.001, 2];
+  app.innerHTML = aperturaFrame(1, `
+    <div class="card paper approach">
+      <div class="math center big-expr" role="math" aria-label="f de x igual a x al cuadrado menos 4 entre x menos 2">${renderMath('f(x) = \\frac{x^{2} − 4}{x − 2}')}</div>
+      <div class="ap-table" role="table" aria-label="Valores de f(x) cuando x se acerca a 2">
+        <div class="ap-row head" role="row"><span role="columnheader" class="math">${renderMath('x')}</span><span role="columnheader" class="math">${renderMath('f(x)')}</span></div>
+        <div class="ap-side" aria-hidden="true">x se acerca a 2 desde abajo ↓</div>
+        ${rows.map((v) => `<div class="ap-row ${v === 2 ? 'hole' : ''}" role="row">
+          <span class="ap-x math" role="cell">${renderMath(fmt(v))}</span>
+          <span role="cell"><button class="ap-cell" type="button" data-v="${v}" aria-label="Calcular f de ${fmt(v)}">?</button></span>
+        </div>`).join('')}
+        <div class="ap-side" aria-hidden="true">x se acerca a 2 desde arriba ↑</div>
+      </div>
+    </div>
+    ${mentor('Toca cada ? para calcular f(x). Mira a qué número se acerca.', 'saludo')}
+    <div class="options row" id="q1"></div>`, 'Acercarse');
+  const shown = new Set();
+  const next = () => order.find((v) => !shown.has(v));
+  const cell = (v) => $(`.ap-cell[data-v="${v}"]`);
+  $$('.ap-cell').forEach((b) => b.addEventListener('click', () => {
+    const v = Number(b.dataset.v);
+    if (shown.has(v)) return;
+    shown.add(v); sfx.tap();
+    b.classList.add('shown');
+    if (v === 2) {
+      b.classList.add('none');
+      b.innerHTML = `<span class="math">${renderMath('\\frac{0}{0}')}</span>`;
+      b.setAttribute('aria-label', 'f de 2 da 0 entre 0: no existe');
+      setMentor(app, 'En x = 2 sale 0/0: f(2) no existe. Pero los valores de al lado sí se acercan a algo.', 'pensativa');
+    } else {
+      b.textContent = fmt(v + 2);
+      b.setAttribute('aria-label', `f de ${fmt(v)} es ${fmt(v + 2)}`);
+      setMentor(app, `f(${fmt(v)}) = ${fmt(v + 2)}`, 'senalando');
+    }
+    if (shown.size === rows.length) { $('.approach').classList.add('converge'); ask(); }
+    else guideNext(cell(next()));
+  }));
+  setTimeout(() => guideNext(cell(next())), 700);
   function ask() {
-    setMentor(app, 'En x = 2 no hay valor, pero f(x) se acerca a un número. ¿A cuál?', 'senalando');
-    const box = $('#q1');
-    const opts = [['4', true, ''], ['2', false, '2 es el valor al que se acerca x, no f(x).'], ['No existe', false, 'f(2) no existe, pero el límite sí: mira la tabla.']];
-    box.innerHTML = opts.map(([t], i) => `<button class="pill ${t.length > 2 ? 'text' : ''}" data-i="${i}" type="button"><span class="pill-body ${t.length > 2 ? '' : 'math'}">${t.length > 2 ? t : renderMath(t)}</span><span class="mark"></span></button>`).join('');
-    $$('.pill', box).forEach((b) => b.addEventListener('click', () => {
-      const [, ok, fb] = opts[Number(b.dataset.i)];
-      if (ok) {
-        sfx.ok(); b.classList.add('right'); b.querySelector('.mark').innerHTML = icon('check');
-        $$('.pill', box).forEach((x) => { x.disabled = true; });
-        setMentor(app, 'Exacto: el límite de f(x) cuando x → 2 es 4, aunque f(2) no exista.', 'celebra');
-        S.apertura.idea = Math.max(S.apertura.idea, 1); save();
-        box.insertAdjacentHTML('afterend', `<a class="btn primary" href="#/apertura/2">Siguiente idea ${icon('arrow')}</a>`);
-      } else { sfx.bad(); b.classList.add('wrong'); b.disabled = true; b.querySelector('.mark').innerHTML = icon('x'); setMentor(app, fb, 'animo'); }
-    }));
+    setTimeout(() => {
+      setMentor(app, 'Cuando x se acerca a 2, ¿a qué número se acerca f(x)?', 'base');
+      miniQuiz($('#q1'), shuffle([
+        { t: '4', math: true, ok: true },
+        { t: '2', math: true, fb: '2 es a donde se acerca x. Mira la columna de f(x).' },
+        { t: 'No existe', fb: 'f(2) no existe, pero f(x) sí se acerca a un número: mira la tabla.' },
+      ]), {
+        row: true,
+        onRight: () => {
+          setMentor(app, 'Exacto. El límite es 4, aunque f(2) no exista. Eso es un límite: el valor al que se acerca f(x).', 'celebra');
+          S.apertura.idea = Math.max(S.apertura.idea, 1); save();
+          nextIdeaButton($('#q1'), '#/apertura/2');
+        },
+      });
+      $('#q1').scrollIntoView({ block: 'end', behavior: reduced() ? 'auto' : 'smooth' });
+    }, 700);
   }
 }
 
@@ -840,12 +939,13 @@ function idea2() {
         <button class="part" data-p="f" type="button"><span class="math">${renderMath('f(x)')}</span></button>
         <button class="part" data-p="v" type="button"><span class="math">${renderMath('= 4')}</span></button>
       </div>
-      <p class="anatomy-help">Toca cada parte</p>
+      <p class="anatomy-help">Toca cada parte marcada</p>
       <ul class="anatomy-list" id="alist"></ul>
     </div>
     ${mentor('Así se escribe un límite. Toca cada parte para saber qué significa.', 'base')}
     <div class="options" id="q2"></div>`, 'Leer la notación');
   const seen = new Set();
+  const nextPart = () => { const p = parts.find((x) => !seen.has(x[0])); return p && $(`.part[data-p="${p[0]}"]`); };
   $$('.part').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation();
     const p = parts.find((x) => x[0] === b.dataset.p);
@@ -856,25 +956,27 @@ function idea2() {
       $('#alist').insertAdjacentHTML('beforeend', `<li><span class="math">${renderMath(p[1])}</span><span>${p[2].split(':')[0]}</span></li>`);
       b.classList.add('seen');
     }
-    if (seen.size === 4 && !$('#q2').children.length) quiz();
+    if (seen.size === 4) { if (!$('#q2').children.length) quiz(); }
+    else guideNext(nextPart());
   }));
+  setTimeout(() => guideNext(nextPart()), 700);
   function quiz() {
+    stopGuide();
     setTimeout(() => {
       setMentor(app, '¿Qué significa x → 2?', 'base');
-      const opts = [['x se acerca a 2', true], ['x vale 2', false, 'Se acerca, pero no necesita llegar a 2.'], ['f(x) vale 2', false, 'La flecha habla de x, no de f(x).']];
-      const box = $('#q2');
-      box.innerHTML = shuffle(opts.map((o, i) => [...o, i])).map(([t, , , i]) => `<button class="pill text" data-i="${i}" type="button"><span class="pill-body">${t}</span><span class="mark"></span></button>`).join('');
-      $$('.pill', box).forEach((b) => b.addEventListener('click', () => {
-        const [, ok, fb] = opts[Number(b.dataset.i)];
-        if (ok) {
-          sfx.ok(); b.classList.add('right'); b.querySelector('.mark').innerHTML = icon('check');
-          $$('.pill', box).forEach((x) => { x.disabled = true; });
+      miniQuiz($('#q2'), shuffle([
+        { t: 'x se acerca a 2', ok: true },
+        { t: 'x vale 2', fb: 'Se acerca, pero no necesita llegar a 2.' },
+        { t: 'f(x) vale 2', fb: 'La flecha habla de x, no de f(x).' },
+      ]), {
+        onRight: () => {
           setMentor(app, 'Eso es. Ahora veamos cómo se calcula cuando basta sustituir.', 'celebra');
           S.apertura.idea = Math.max(S.apertura.idea, 2); save();
-          box.insertAdjacentHTML('afterend', `<a class="btn primary" href="#/apertura/3">Siguiente idea ${icon('arrow')}</a>`);
-        } else { sfx.bad(); b.classList.add('wrong'); b.disabled = true; b.querySelector('.mark').innerHTML = icon('x'); setMentor(app, fb, 'animo'); }
-      }));
-    }, 500);
+          nextIdeaButton($('#q2'), '#/apertura/3');
+        },
+      });
+      $('#q2').scrollIntoView({ block: 'end', behavior: reduced() ? 'auto' : 'smooth' });
+    }, 600);
   }
 }
 
@@ -899,7 +1001,10 @@ function idea4() {
         <button class="pill text" data-k="indet" type="button"><span class="pill-body">Sale 0/0 · hay que transformar</span><span class="mark"></span></button>
       </div>`, '¿Directo o transformar?');
     fitAll();
+    guideGroup($('.apertura .options'), '.pill', { strong: i === 0 || isNovice() });
     $$('.pill').forEach((b) => b.addEventListener('click', async () => {
+      if (b.disabled) return;
+      stopGuide();
       const right = (b.dataset.k === 'num') === isDirect;
       if (right) {
         ok++; sfx.ok(); b.classList.add('right'); b.querySelector('.mark').innerHTML = icon('check');
@@ -934,6 +1039,7 @@ function route() {
   const h = location.hash.replace(/^#\/?/, '') || 'inicio';
   const [a, b] = h.split('/');
   document.body.dataset.view = a;
+  stopGuide();
   window.scrollTo(0, 0);
   try {
     if (a === 'inicio') viewHome();

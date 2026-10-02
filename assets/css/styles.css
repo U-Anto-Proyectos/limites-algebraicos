@@ -355,32 +355,28 @@ sup { font-size: .62em; line-height: 0; position: relative; top: -.62em; margin-
 .idea-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--linea); }
 .idea-dots i.done { background: var(--salvia-fuerte); }
 .idea-dots i.now { background: var(--terracota); }
-.explore { padding: 16px; display: flex; flex-direction: column; gap: 12px; align-items: center; background: var(--papel); border: 0; box-shadow: var(--sombra-papel); }
 .big-expr { font-size: 26px; }
-.graph { width: 100%; max-width: 420px; height: auto; overflow: visible; }
-.graph .axis path, .graph .ticks path { stroke: var(--tinta-papel); stroke-width: 1; opacity: .45; fill: none; }
-.graph text { font: 12px var(--math); fill: var(--tinta-2); }
-.graph .fline { stroke: var(--tinta-papel); stroke-width: 2.2; fill: none; }
-.graph .guide { stroke: var(--terracota); stroke-width: 1; stroke-dasharray: 4 4; fill: none; opacity: .7; }
-.graph .hole { fill: var(--papel); stroke: var(--tinta-papel); stroke-width: 1.8; }
-.graph .pt { fill: var(--terracota); transition: opacity .2s; }
-.explore-read { width: 100%; display: flex; justify-content: space-between; font-size: 22px; }
-.explore-read b { font: 400 22px var(--math); color: var(--terracota); margin-left: .25em; }
-.slider { width: 100%; }
-.slider input { width: 100%; accent-color: var(--terracota); height: 32px; }
-.table { width: 100%; display: grid; grid-template-columns: repeat(8, 1fr); font: 400 15px var(--math); color: var(--tinta-papel); }
-.table .tr { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; border-radius: 10px; transition: background .2s; }
-.table .tr.head { color: var(--tinta-3); }
-.table .tr.near { background: var(--terracota-suave); }
-.table .tr.hole-row { background: var(--salvia-suave); }
+/* idea 1: acercarse con números */
+.approach { padding: 18px 16px 14px; display: flex; flex-direction: column; gap: 14px; align-items: center; background: var(--papel); border: 0; box-shadow: var(--sombra-papel); }
+.ap-table { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 4px; }
+.ap-row { display: grid; grid-template-columns: 1fr 1fr; align-items: center; justify-items: center; min-height: 44px; border-radius: 12px; }
+.ap-row.head { min-height: 28px; color: var(--tinta-3); font-size: 18px; }
+.ap-row.hole { background: var(--salvia-suave); }
+.ap-x { font-size: 20px; }
+.ap-side { text-align: center; font: 500 12px var(--ui); color: var(--tinta-3); letter-spacing: .02em; }
+.ap-cell { position: relative; min-width: 84px; height: 38px; padding: 0 12px; border-radius: 12px; border: 1.5px dashed var(--terracota); background: var(--terracota-suave); color: var(--terracota); font: 400 20px var(--math); cursor: pointer; transition: background .25s, border-color .25s, color .25s; }
+.ap-cell.shown { border: 1.5px solid transparent; background: transparent; color: var(--tinta-papel); cursor: default; animation: cellIn .35s var(--ease); }
+.ap-cell.none { color: var(--tinta-3); font-size: 15px; height: auto; }
+.approach.converge .ap-row:not(.hole):not(.head) .ap-cell { color: var(--terracota); }
+@keyframes cellIn { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
 .lead { margin: 0; text-align: center; color: var(--tinta-2); font-size: 16px; }
 .anatomy { padding: 22px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; background: var(--papel); border: 0; box-shadow: var(--sombra-papel); }
 .anatomy-expr { display: flex; align-items: center; gap: 6px; font: 400 40px var(--math); }
 .anatomy .lim.anat { display: inline-flex; flex-direction: column; align-items: center; }
-.part { border: 1.5px dashed transparent; background: transparent; border-radius: 12px; padding: 2px 8px; cursor: pointer; font: inherit; color: var(--tinta-papel); transition: background .2s, border-color .2s; }
+.part { position: relative; border: 1.5px dashed color-mix(in srgb, var(--terracota) 55%, transparent); background: transparent; border-radius: 12px; padding: 2px 8px; cursor: pointer; font: inherit; color: var(--tinta-papel); transition: background .2s, border-color .2s; }
 .part.sub { font-size: .5em; padding: 2px 6px; }
 .part:hover { border-color: var(--terracota); }
-.part.seen { background: var(--salvia-suave); }
+.part.seen { background: var(--salvia-suave); border-color: transparent; }
 .part.sel { background: var(--terracota-suave); border-color: var(--terracota); }
 .part .lw { font: 400 1em var(--math); }
 .part .ls { font: 400 1em var(--math); }
@@ -388,6 +384,29 @@ sup { font-size: .62em; line-height: 0; position: relative; top: -.62em; margin-
 .anatomy-list { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; }
 .anatomy-list li { display: flex; gap: 12px; align-items: center; font-size: 14px; color: var(--tinta-2); animation: lineIn .3s var(--ease) both; }
 .anatomy-list .math { min-width: 64px; font-size: 18px; justify-content: center; }
+
+/* ---------- guía visual: dónde tocar ---------- */
+.guide-on { position: relative; }
+.guide-on::after { content: ''; position: absolute; inset: -5px; border-radius: inherit; border: 2px solid var(--terracota); pointer-events: none; animation: guideRing 1.6s ease-out infinite; }
+@keyframes guideRing { 0% { opacity: .9; transform: scale(.98); } 100% { opacity: 0; transform: scale(1.06); } }
+.guide-hand { position: absolute; z-index: 6; right: 14%; bottom: -24px; width: 44px; height: 44px; pointer-events: none; animation: guideTap 1.5s ease-in-out infinite; filter: drop-shadow(0 3px 6px rgba(40,30,20,.18)); }
+.guide-hand svg, .gt-hand svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.guide-hand .palm, .gt-hand .palm { fill: #FFFDF9; }
+.guide-hand path, .gt-hand path { stroke: #2B2622; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.guide-hand .palm { fill: #FFFDF9; }
+.guide-hand .ripple { fill: none; stroke: var(--terracota); stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; animation: guideRipple 1.5s ease-out infinite; }
+@keyframes guideTap { 0% { opacity: 0; transform: translate(10px, 14px); } 18% { opacity: 1; transform: translate(0, 0); } 40% { transform: translate(0, 0) scale(.86); } 52% { transform: translate(0, 0) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; transform: translate(0, 0); } }
+@keyframes guideRipple { 0%, 38% { opacity: 0; transform: scale(.4); } 45% { opacity: .9; } 80%, 100% { opacity: 0; transform: scale(2.4); } }
+.ap-cell .guide-hand, .part .guide-hand { right: auto; left: 50%; bottom: auto; top: 55%; margin-left: -12px; }
+.btn .guide-hand { right: 18%; bottom: -26px; }
+.hint-btn.guide-on::after { inset: -4px; }
+.guide-tip { margin: -2px 0 0; display: flex; align-items: center; gap: 8px; font: 500 14px/1.3 var(--ui); color: var(--terracota); }
+.guide-tip small { font: inherit; color: var(--tinta-3); }
+.gt-hand { flex: none; width: 26px; height: 26px; }
+.gt-hand .ripple { display: none; }
+.mini-slot { display: inline-grid; place-items: center; min-width: 1.9em; height: 1.45em; margin: 0 .15em; border-radius: 8px; border: 1.5px dashed var(--terracota); background: var(--terracota-suave); font: 400 15px var(--math); vertical-align: middle; }
+.slot.active.hey { animation: hey 1.4s ease-in-out infinite; }
+@keyframes hey { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(181,101,29,.0); } 30% { transform: scale(1.1); box-shadow: 0 0 0 7px rgba(181,101,29,.16); } 55% { transform: scale(.98); } }
 
 /* ---------- tablet ---------- */
 @media (min-width: 640px) {
@@ -398,7 +417,6 @@ sup { font-size: .62em; line-height: 0; position: relative; top: -.62em; margin-
   .pline { font-size: 26px; }
   .stats { grid-template-columns: repeat(4, 1fr); }
   .stations { grid-template-columns: repeat(3, 1fr); }
-  .table { font-size: 17px; }
 }
 
 /* ---------- escritorio ---------- */
@@ -423,5 +441,7 @@ sup { font-size: .62em; line-height: 0; position: relative; top: -.62em; margin-
 /* ---------- movimiento reducido ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-  .slot.active { animation: none; }
+  .slot.active, .slot.active.hey { animation: none; }
+  .guide-hand { animation: none; opacity: 1; }
+  .guide-on::after { animation: none; opacity: 1; }
 }
