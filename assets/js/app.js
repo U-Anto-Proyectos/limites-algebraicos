@@ -207,14 +207,14 @@ function levelStatus(l) {
 function viewHome() {
   const nl = nextLevel();
   const cont = S.shift && S.shift.idx > 0 && S.shift.idx < SHIFT_LEN
-    ? { label: `Continuar · ${LEVELS[S.shift.level].name} ${S.shift.idx}/${SHIFT_LEN}`, href: `#/turno/${S.shift.level}` }
+    ? { label: `Continuar · ${LEVELS[S.shift.level].name} · ${S.shift.idx}/${SHIFT_LEN}`, href: `#/nivel/${S.shift.level}` }
     : nl === 'apertura'
-      ? { label: 'Empezar desde 0 · Apertura', href: '#/apertura' }
-      : { label: `Empezar turno · ${LEVELS[nl].name}`, href: `#/turno/${nl}` };
+      ? { label: 'Empezar · Nivel 0 · Desde cero', href: '#/apertura' }
+      : { label: `Empezar · ${LEVELS[nl].name} · ${LEVELS[nl].short}`, href: `#/nivel/${nl}` };
   const greet = S.served === 0 ? 'Hoy abrimos la cafetería. ¿Empezamos?' : S.streak >= 3 ? `Llevas ${S.streak} pedidos seguidos sin error.` : 'Hay pedidos esperando en el riel.';
   const day = ['apertura', ...LEVEL_ORDER].map((l) => {
     const st = levelStatus(l);
-    return `<li class="seg ${st}"><span></span>${{ apertura: 'Apertura', facil: 'Mañana', medio: 'Mediodía', alto: 'Hora punta' }[l]}</li>`;
+    return `<li class="seg ${st}"><span></span>${LEVELS[l].name}</li>`;
   }).join('');
   app.innerHTML = `
   <div class="view home">
@@ -232,13 +232,13 @@ function viewHome() {
         ${mentor(greet, 'saludo')}
         <div class="counters">${chip('flame', S.streak, 'Racha')}${chip('cup', S.served, 'Pedidos servidos')}${chip('star', S.stars, 'Estrellas')}</div>
         <div class="day card">
-          <div class="day-head"><span class="eyebrow">Jornada de hoy</span><span class="mono">${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false })}</span></div>
+          <div class="day-head"><span class="eyebrow">Tu avance</span><span class="mono">${['apertura', ...LEVEL_ORDER].filter((l) => levelStatus(l) === 'ok').length}/4 niveles</span></div>
           <ol class="day-segs">${day}</ol>
         </div>
         <div class="home-actions">
           <a class="btn primary" href="${cont.href}">${cont.label} ${icon('arrow')}</a>
           <div class="row2">
-            <a class="btn secondary" href="#/jornada">Elegir turno</a>
+            <a class="btn secondary" href="#/niveles">Elegir nivel</a>
             <a class="btn secondary" href="#/estaciones">Estaciones</a>
           </div>
         </div>
@@ -251,7 +251,7 @@ function viewHome() {
 }
 
 /* =========================================================================
-   JORNADA (niveles)
+   NIVELES
    ========================================================================= */
 function viewJornada() {
   const desc = {
@@ -262,15 +262,15 @@ function viewJornada() {
   };
   const items = ['apertura', ...LEVEL_ORDER].map((l) => {
     const st = levelStatus(l);
-    const L = l === 'apertura' ? { name: 'Apertura', short: 'Desde 0', hour: '07:00' } : LEVELS[l];
-    const href = l === 'apertura' ? '#/apertura' : `#/turno/${l}`;
+    const L = LEVELS[l];
+    const href = l === 'apertura' ? '#/apertura' : `#/nivel/${l}`;
     let foot;
     if (st === 'ok') foot = `<span class="ok-line">${icon('check')} Servido${l === 'apertura' ? '' : ` ${SHIFT_LEN}/${SHIFT_LEN}`}</span><span class="stars">${[0, 1, 2].map((i) => starIcon(l === 'apertura' || i < Math.max(1, Math.round((S.levels[l]?.stars || 0) / SHIFT_LEN)))).join('')}</span>`;
     else if (st === 'now' && S.shift && S.shift.level === l) foot = `<span class="bar"><span style="width:${(S.shift.idx / SHIFT_LEN) * 100}%"></span></span><span>${S.shift.idx}/${SHIFT_LEN} pedidos</span>`;
     else if (st === 'now') foot = `<span class="go">Empezar ${icon('arrow')}</span>`;
-    else foot = `<span class="muted">${icon('lock')} Recomendado después del turno anterior</span>`;
+    else foot = `<span class="muted">${icon('lock')} Recomendado después del nivel anterior</span>`;
     return `<li class="shift ${st}">
-      <div class="time"><span class="mono">${L.hour}</span><span class="dot"></span><span class="line"></span></div>
+      <div class="time"><span class="mono">${L.num}</span><span class="dot"></span><span class="line"></span></div>
       <a class="shift-card card" href="${href}">
         <div class="shift-head"><h2>${L.name}</h2><span class="pill-level">${L.short}</span></div>
         <p>${renderRich(desc[l])}</p>
@@ -278,7 +278,7 @@ function viewJornada() {
       </a>
     </li>`;
   }).join('');
-  app.innerHTML = `<div class="view narrow">${topbar({ title: 'Jornada', sub: 'Cada turno sube la dificultad' })}<ol class="shifts">${items}</ol></div>`;
+  app.innerHTML = `<div class="view narrow">${topbar({ title: 'Niveles', sub: 'Cada nivel sube la dificultad' })}<ol class="shifts">${items}</ol></div>`;
 }
 
 /* =========================================================================
@@ -331,9 +331,9 @@ function viewPedido() {
   P.ex = ex; P.step = 0; P.errors = 0; P.hints = 0; P.hintLevel = 0; P.lines = []; P.busy = false; P.tips = 0;
   const total = P.mode === 'turno' ? SHIFT_LEN : P.mode === 'apertura' ? 2 : null;
   const num = P.offset + P.i + 1;
-  const title = P.mode === 'turno' ? LEVELS[P.level].name : P.mode === 'estacion' ? TECH[P.tech].name : 'Apertura';
+  const title = P.mode === 'turno' ? `${LEVELS[P.level].name} · ${LEVELS[P.level].short}` : P.mode === 'estacion' ? TECH[P.tech].name : 'Nivel 0 · Desde cero';
   const sub = total ? `Pedido ${num} de ${total}` : `Pedido ${num}`;
-  const back = P.mode === 'estacion' ? '#/estaciones' : P.mode === 'apertura' ? '#/apertura' : '#/jornada';
+  const back = P.mode === 'estacion' ? '#/estaciones' : P.mode === 'apertura' ? '#/apertura' : '#/niveles';
   const segs = total ? `<div class="progress" aria-hidden="true">${Array.from({ length: total }, (_, k) => `<span class="${k < num - 1 ? 'done' : k === num - 1 ? 'now' : ''}"></span>`).join('')}</div>` : '';
   const time = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
   app.innerHTML = `<div class="view pedido">
@@ -682,7 +682,7 @@ async function serve() {
   $('.topbar .counter span').textContent = String(S.streak);
   const lastInShift = P.mode === 'turno' && S.shift.idx >= SHIFT_LEN;
   const lastApertura = P.mode === 'apertura' && P.i >= P.list.length - 1;
-  const nextLabel = lastInShift ? 'Cerrar el turno' : lastApertura ? 'Siguiente idea' : 'Siguiente pedido';
+  const nextLabel = lastInShift ? 'Terminar el nivel' : lastApertura ? 'Siguiente idea' : 'Siguiente pedido';
   const side = $('.col-side');
   side.innerHTML = `
     ${mentor(clean ? '¡Pedido servido! Lo construiste sin errores.' : '¡Pedido servido! Revisa los pasos donde dudaste.', 'celebra')}
@@ -693,7 +693,7 @@ async function serve() {
       <span class="badge">${clean ? 'Al primer intento' : `${P.errors} ${P.errors === 1 ? 'error' : 'errores'}`}</span>
     </div>
     <button class="btn primary" id="nextBtn" type="button">${nextLabel} ${icon('arrow')}</button>
-    <a class="btn ghost" href="${P.mode === 'estacion' ? '#/estaciones' : '#/jornada'}">${P.mode === 'estacion' ? 'Ver estaciones' : 'Ver la jornada'}</a>`;
+    <a class="btn ghost" href="${P.mode === 'estacion' ? '#/estaciones' : '#/niveles'}">${P.mode === 'estacion' ? 'Ver estaciones' : 'Ver los niveles'}</a>`;
   $('.ped-foot')?.remove();
   const nb = $('#nextBtn');
   nb.focus({ preventScroll: true });
@@ -742,7 +742,7 @@ function viewFin(level) {
   const worst = Object.entries(st.techErr).sort((a, b) => b[1] - a[1])[0];
   const nxt = LEVEL_ORDER[LEVEL_ORDER.indexOf(level) + 1];
   app.innerHTML = `<div class="view narrow fin">
-    <header class="fin-head"><span class="eyebrow">${LEVELS[level].name} · ${LEVELS[level].short}</span><h1 class="title">Fin del turno</h1></header>
+    <header class="fin-head"><span class="eyebrow">${LEVELS[level].name} · ${LEVELS[level].short}</span><h1 class="title">Nivel completado</h1></header>
     <div class="big card paper"><span class="big-n">${SHIFT_LEN}</span><span>de ${SHIFT_LEN} pedidos servidos</span><span class="stars">${[0, 1, 2].map((i) => starIcon(i < stars)).join('')}</span></div>
     <div class="stats">
       <div class="card"><strong>${st.firstTry}/${SHIFT_LEN}</strong><span>Al primer intento</span></div>
@@ -751,10 +751,10 @@ function viewFin(level) {
       <div class="card"><strong>+${st.tips}</strong><span>Propinas</span></div>
     </div>
     ${worst ? `<div class="card hard"><span class="eyebrow">Lo que más te costó</span><div class="hard-row"><span class="glyph">${renderMath(TECH[worst[0]].glyph)}</span><span><strong>${TECH[worst[0]].name}</strong><small>${worst[1]} ${worst[1] === 1 ? 'error' : 'errores'}. Repásala en Estaciones.</small></span></div></div>` : ''}
-    ${mentor(st.errors === 0 ? 'Turno impecable. ¡Así se atiende una cafetería!' : nxt ? `Buen turno. ${LEVELS[nxt].name} te espera.` : 'Cerraste la jornada completa.', 'celebra')}
+    ${mentor(st.errors === 0 ? 'Nivel impecable. ¡Así se atiende una cafetería!' : nxt ? `Buen trabajo. El ${LEVELS[nxt].name} te espera.` : 'Completaste todos los niveles.', 'celebra')}
     <div class="home-actions">
-      ${nxt ? `<a class="btn primary" href="#/turno/${nxt}">Siguiente turno · ${LEVELS[nxt].name} ${icon('arrow')}</a>` : '<a class="btn primary" href="#/estaciones">Practicar en Estaciones</a>'}
-      <a class="btn secondary" href="#/turno/${level}">Repetir ${LEVELS[level].name}</a>
+      ${nxt ? `<a class="btn primary" href="#/nivel/${nxt}">Siguiente · ${LEVELS[nxt].name} · ${LEVELS[nxt].short} ${icon('arrow')}</a>` : '<a class="btn primary" href="#/estaciones">Practicar en Estaciones</a>'}
+      <a class="btn secondary" href="#/nivel/${level}">Repetir ${LEVELS[level].name}</a>
       <a class="btn ghost" href="#/inicio">Volver al inicio</a>
     </div>
   </div>`;
@@ -826,7 +826,7 @@ function hintWrong(t) {
    ========================================================================= */
 function aperturaFrame(n, inner, title) {
   return `<div class="view narrow apertura">
-    ${topbar({ title: 'Apertura', sub: `Idea ${n} de 4 · ${title}`, back: '#/jornada', right: `<span class="idea-dots" aria-hidden="true">${[1, 2, 3, 4].map((k) => `<i class="${k < n ? 'done' : k === n ? 'now' : ''}"></i>`).join('')}</span>` })}
+    ${topbar({ title: 'Nivel 0 · Desde cero', sub: `Idea ${n} de 4 · ${title}`, back: '#/niveles', right: `<span class="idea-dots" aria-hidden="true">${[1, 2, 3, 4].map((k) => `<i class="${k < n ? 'done' : k === n ? 'now' : ''}"></i>`).join('')}</span>` })}
     ${inner}
   </div>`;
 }
@@ -1022,10 +1022,10 @@ function idea4() {
   };
   const done = () => {
     S.apertura.done = true; S.apertura.idea = 4; save();
-    app.innerHTML = `<div class="view narrow fin"><header class="fin-head"><span class="eyebrow">Apertura · Desde 0</span><h1 class="title">Cafetería abierta</h1></header>
+    app.innerHTML = `<div class="view narrow fin"><header class="fin-head"><span class="eyebrow">Nivel 0 · Desde cero</span><h1 class="title">Cafetería abierta</h1></header>
       <div class="big card paper"><span class="big-n">${ok}</span><span>de 6 comandas leídas al primer intento</span></div>
-      ${mentor('Ya sabes qué es un límite, cómo se lee y cuándo hay que transformar. Empieza la Mañana tranquila.', 'celebra')}
-      <div class="home-actions"><a class="btn primary" href="#/turno/facil">Empezar · Mañana tranquila ${icon('arrow')}</a><a class="btn ghost" href="#/inicio">Volver al inicio</a></div></div>`;
+      ${mentor('Ya sabes qué es un límite, cómo se lee y cuándo hay que transformar. Sigue con el Nivel 1.', 'celebra')}
+      <div class="home-actions"><a class="btn primary" href="#/nivel/facil">Empezar · Nivel 1 · Fácil ${icon('arrow')}</a><a class="btn ghost" href="#/inicio">Volver al inicio</a></div></div>`;
     if (!reduced()) burst($('.big'));
     sfx.serve();
   };
@@ -1043,9 +1043,9 @@ function route() {
   window.scrollTo(0, 0);
   try {
     if (a === 'inicio') viewHome();
-    else if (a === 'jornada') viewJornada();
+    else if (a === 'niveles' || a === 'jornada') viewJornada();
     else if (a === 'estaciones') viewEstaciones();
-    else if (a === 'turno' && LEVELS[b] && b !== 'apertura') { startSession('turno', { level: b }); viewPedido(); }
+    else if ((a === 'nivel' || a === 'turno') && LEVELS[b] && b !== 'apertura') { startSession('turno', { level: b }); viewPedido(); }
     else if (a === 'estacion' && TECH[b]) { startSession('estacion', { tech: b }); viewPedido(); }
     else if (a === 'fin' && LEVELS[b]) viewFin(b);
     else if (a === 'comandas') { C = null; viewComandas(); }

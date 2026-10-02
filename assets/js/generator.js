@@ -142,17 +142,26 @@ const TECH_FB = {
 };
 
 let SEQ = 0;
-const CLIENTS = ['Valeria', 'Diego', 'Rosa', 'Mateo', 'Lucía', 'Andrés', 'Camila', 'Joaquín', 'Ximena', 'Bruno', 'Fiorella', 'Renato'];
+// nombres según la foto de cada cliente (cliente-1.webp … cliente-6.webp)
+const CLIENTS = {
+  1: ['Diego', 'Mateo'], // joven con audífonos
+  2: ['Lucía', 'Camila'], // joven con lentes
+  3: ['Renato', 'Bruno'], // señor con boina
+  4: ['Valeria', 'Ximena'], // joven con trenza
+  5: ['Rosa', 'Fiorella'], // señora con chalina
+  6: ['Joaquín', 'Andrés'], // ingeniero con casco
+};
 
 function baseExercise(tech, level) {
   SEQ += 1;
+  const client = rnd(1, 6);
   return {
     id: `${tech}-${Date.now().toString(36)}-${SEQ}`,
     tech,
     level,
     number: rnd(10, 99),
-    client: rnd(1, 6),
-    clientName: pick(CLIENTS),
+    client,
+    clientName: pick(CLIENTS[client]),
     steps: [],
   };
 }
@@ -1120,7 +1129,7 @@ function genInfMenosInf(level = 'alto') {
 }
 
 /* =========================================================================
-   COMBINADO (Hora punta): factor común + diferencia de cuadrados
+   COMBINADO (Nivel 3): factor común + diferencia de cuadrados
       (k x² − k a²)/(x − a)  →  2ka
    ========================================================================= */
 function genCombo(level = 'alto') {
@@ -1197,10 +1206,10 @@ export const GENERATORS = {
 };
 
 export const LEVELS = {
-  apertura: { name: 'Apertura', short: 'Desde 0', hour: '07:00', pool: { directa: 1 } },
-  facil: { name: 'Mañana tranquila', short: 'Fácil', hour: '09:00', pool: { directa: 2, factorComun: 3, difCuadrados: 3 } },
-  medio: { name: 'Mediodía', short: 'Medio', hour: '13:00', pool: { aspa: 3, conjugada: 2, potencia: 2, difCuadrados: 1 } },
-  alto: { name: 'Hora punta', short: 'Alto', hour: '18:00', pool: { ruffini: 3, infMenosInf: 2, potencia: 1, combo: 2 } },
+  apertura: { name: 'Nivel 0', short: 'Desde cero', num: '0', pool: { directa: 1 } },
+  facil: { name: 'Nivel 1', short: 'Fácil', num: '1', pool: { directa: 2, factorComun: 3, difCuadrados: 3 } },
+  medio: { name: 'Nivel 2', short: 'Medio', num: '2', pool: { aspa: 3, conjugada: 2, potencia: 2, difCuadrados: 1 } },
+  alto: { name: 'Nivel 3', short: 'Alto', num: '3', pool: { ruffini: 3, infMenosInf: 2, potencia: 1, combo: 2 } },
 };
 
 /* nivel por defecto de cada técnica cuando se practica en Estaciones */

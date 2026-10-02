@@ -8,8 +8,8 @@ Sitio: https://u-anto-proyectos.github.io/limites-algebraicos/
 
 ## Contenido
 
-- **Apertura (desde 0):** qué significa acercarse, cómo se lee la notación, sustitución directa y cuándo sale 0/0.
-- **Turnos:** Mañana (fácil), Mediodía (medio), Hora punta (alto).
+- **Nivel 0 · Desde cero:** qué significa acercarse, cómo se lee la notación, sustitución directa y cuándo sale 0/0.
+- **Nivel 1 · Fácil, Nivel 2 · Medio y Nivel 3 · Alto:** 8 pedidos por nivel.
 - **Estaciones:** práctica por técnica: sustitución directa, factor común, diferencia de cuadrados, aspa simple, Ruffini, conjugada, mayor potencia (∞/∞) e ∞ − ∞.
 - **Lectura de comandas:** solo reconocer la técnica.
 
