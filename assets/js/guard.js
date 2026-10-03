@@ -67,12 +67,12 @@
     dialog.setAttribute('aria-describedby', 'guard-d');
     dialog.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:rgba(18,23,25,.42);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:guardIn .18s ease both';
     dialog.innerHTML = '<style>@keyframes guardIn{from{opacity:0}to{opacity:1}}@keyframes guardUp{from{transform:translateY(10px) scale(.98)}to{transform:none}}'
-      + '.guard-card{width:100%;max-width:340px;padding:22px 20px 16px;border-radius:22px;background:var(--superficie,#fff);color:var(--tinta,#1F2A2E);box-shadow:0 24px 60px rgba(0,0,0,.25);font:500 15px/1.4 var(--ui,system-ui,-apple-system,sans-serif);text-align:center;animation:guardUp .22s cubic-bezier(.2,.8,.2,1) both}'
+      + '.guard-card{width:100%;max-width:340px;padding:22px 20px 16px;border-radius:22px;background:var(--superficie,var(--papel,#fff));color:var(--tinta,#1F2A2E);box-shadow:0 24px 60px rgba(0,0,0,.25);font:500 15px/1.4 var(--ui,system-ui,-apple-system,sans-serif);text-align:center;animation:guardUp .22s cubic-bezier(.2,.8,.2,1) both}'
       + '.guard-card h2{margin:0 0 6px;font:600 18px/1.25 var(--ui,system-ui,sans-serif)}'
-      + '.guard-card p{margin:0 0 16px;color:var(--tinta-2,#55606A)}'
+      + '.guard-card p{margin:0 0 16px;color:var(--tinta-2,var(--tinta2,#55606A))}'
       + '.guard-card button{display:block;width:100%;min-height:46px;margin-top:8px;border-radius:999px;font:600 15px var(--ui,system-ui,sans-serif);cursor:pointer;border:1px solid transparent}'
-      + '.guard-stay{background:var(--boton,#1F2A2E);color:var(--boton-texto,#fff)}'
-      + '.guard-go{background:transparent;color:var(--tinta-2,#55606A)}'
+      + '.guard-stay{background:var(--boton,var(--tinta,#1F2A2E));color:var(--boton-texto,var(--superficie,var(--papel,#fff)))}'
+      + '.guard-go{background:transparent;color:var(--tinta-2,var(--tinta2,#55606A))}'
       + '@media (prefers-reduced-motion:reduce){[role=alertdialog],.guard-card{animation:none!important}}</style>'
       + '<div class="guard-card"><h2 id="guard-t">¿Actualizar la página?</h2>'
       + '<p id="guard-d">Tal vez se pierda el avance del ejercicio que estás resolviendo.</p>'
