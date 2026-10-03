@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Límites algebraicos · con el Profe Anto</title>
   <meta name="description" content="La Comanda: una cafetería para aprender límites algebraicos construyendo cada paso. Cálculo Diferencial · con el Profe Anto.">
   <meta name="theme-color" content="#F6F2EC">
@@ -12,6 +12,8 @@
   <link rel="preload" href="assets/fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/geist-sans-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/css/styles.css">
+  <!-- sin zoom y aviso antes de actualizar -->
+  <script src="assets/js/guard.js"></script>
   <script>
     // aplicar el tema guardado antes de pintar (evita parpadeo)
     try { var s = JSON.parse(localStorage.getItem('la-comanda-limites-v1') || '{}'); if (s.theme === 'light' || s.theme === 'dark') document.documentElement.setAttribute('data-theme', s.theme); } catch (e) {}

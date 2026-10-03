@@ -26,6 +26,8 @@ let S;
 try { S = { ...structuredClone(DEFAULT), ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { S = structuredClone(DEFAULT); }
 S.levels = { ...DEFAULT.levels, ...(S.levels || {}) };
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* sin almacenamiento */ } };
+// aviso antes de actualizar (guard.js): solo mientras se resuelve algo
+window.leaveGuard = () => ['nivel', 'turno', 'estacion', 'apertura', 'comandas'].includes(document.body.dataset.view);
 
 /* ---------------- dentro del aula virtual (iframe) ----------------
    El botón «Abrir en pantalla completa» abre la web en otra pestaña y le pasa el avance
