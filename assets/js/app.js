@@ -27,6 +27,55 @@ try { S = { ...structuredClone(DEFAULT), ...JSON.parse(localStorage.getItem(KEY)
 S.levels = { ...DEFAULT.levels, ...(S.levels || {}) };
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* sin almacenamiento */ } };
 
+/* ---------------- dentro del aula virtual (iframe) ----------------
+   El botón «Abrir en pantalla completa» abre la web en otra pestaña y le pasa el avance
+   por la dirección (?p=…), porque el navegador guarda por separado lo de dentro del iframe. */
+const EMBED = (() => { try { return window.self !== window.top; } catch { return true; } })();
+if (EMBED) document.documentElement.classList.add('embedded');
+const num = (v, max = 1e6) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n >= 0 ? Math.min(n, max) : 0; };
+function cleanState(o) {
+  // solo números y claves conocidas: nada de lo que llegue por la dirección se escribe tal cual en la página
+  const c = structuredClone(DEFAULT);
+  if (!o || typeof o !== 'object') return c;
+  if (['system', 'light', 'dark'].includes(o.theme)) c.theme = o.theme;
+  c.sound = o.sound === true;
+  for (const k of ['served', 'tips', 'streak', 'bestStreak', 'stars']) c[k] = num(o[k]);
+  c.apertura = { done: o.apertura?.done === true, idea: num(o.apertura?.idea, 4) };
+  for (const l of ['facil', 'medio', 'alto']) {
+    const x = o.levels?.[l] || {};
+    c.levels[l] = { served: num(x.served), best: num(x.best), stars: num(x.stars), done: x.done === true };
+  }
+  for (const t of Object.keys(TECH)) { const x = o.tech?.[t]; if (x) c.tech[t] = { ok: num(x.ok), tries: num(x.tries) }; }
+  c.guide = { picks: num(o.guide?.picks) };
+  const sh = o.shift;
+  if (sh && ['facil', 'medio', 'alto'].includes(sh.level)) {
+    const st = sh.stats || {};
+    const techErr = {};
+    for (const t of Object.keys(TECH)) if (st.techErr?.[t]) techErr[t] = num(st.techErr[t]);
+    c.shift = { level: sh.level, idx: num(sh.idx, 8), stats: { firstTry: num(st.firstTry), hints: num(st.hints), errors: num(st.errors), best: num(st.best), tips: num(st.tips), techErr, stars: num(st.stars) } };
+  }
+  return c;
+}
+S = cleanState(S);
+try {
+  const q = new URLSearchParams(location.search).get('p');
+  if (q) {
+    const imp = cleanState(JSON.parse(decodeURIComponent(escape(atob(q)))));
+    if (imp.served >= S.served || !S.served) { imp.theme = S.theme === 'system' ? imp.theme : S.theme; S = imp; save(); }
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
+} catch { /* dirección con datos dañados: se ignora */ }
+function outsideUrl() {
+  let data = '';
+  try { data = btoa(unescape(encodeURIComponent(JSON.stringify(S)))); } catch { /* sin avance */ }
+  return `${location.origin}${location.pathname}${data ? `?p=${encodeURIComponent(data)}` : ''}${location.hash}`;
+}
+document.addEventListener('click', (e) => {
+  const a = e.target.closest?.('.open-out');
+  if (a) a.href = outsideUrl();
+});
+const openOut = () => (EMBED ? `<a class="icon-btn open-out" href="./" target="_blank" rel="noopener" aria-label="Abrir en pantalla completa (nueva pestaña)" title="Abrir en pantalla completa">${icon('expand')}</a>` : '');
+
 /* ---------------- tema ---------------- */
 function applyTheme() {
   const t = S.theme;
@@ -80,6 +129,7 @@ const I = {
   x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
   lock: '<rect x="5.5" y="10.5" width="13" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  expand: '<path d="M14 4.5h5.5V10"/><path d="M19.5 4.5L13 11"/><path d="M10 19.5H4.5V14"/><path d="M4.5 19.5L11 13"/>',
 };
 const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${I[n]}</svg>`;
 const starIcon = (filled) => `<svg class="ic star ${filled ? 'on' : ''}" viewBox="0 0 24 24" aria-hidden="true">${I.star}</svg>`;
@@ -163,7 +213,7 @@ function topbar({ title, sub = '', back = '#/inicio', right = '' }) {
   return `<header class="topbar">
     <a class="icon-btn" href="${back}" aria-label="Volver">${icon('back')}</a>
     <div class="topbar-title"><strong>${title}</strong>${sub ? `<span>${sub}</span>` : ''}</div>
-    <div class="topbar-right">${right}</div>
+    <div class="topbar-right">${openOut()}${right}</div>
   </header>`;
 }
 const chip = (ic, val, label) => `<span class="counter" title="${label}" aria-label="${label}: ${val}">${icon(ic)}<span>${val}</span></span>`;
@@ -183,6 +233,7 @@ function bindGlobal(root) {
 }
 const brand = () => `<a class="brand" href="#/inicio" aria-label="La Comanda, inicio">${icon('cup', 'brand-ic')}<span>La Comanda</span></a>`;
 const toggles = () => `<div class="toggles">
+  ${openOut()}
   <button class="icon-btn" data-act="theme" aria-label="${themeLabel()}" title="${themeLabel()}">${icon(themeIcon())}</button>
   <button class="icon-btn" data-act="sound" aria-pressed="${S.sound}" aria-label="Sonido" title="Sonido">${icon(S.sound ? 'sound' : 'mute')}</button>
 </div>`;
@@ -343,9 +394,7 @@ function viewPedido() {
       <section class="col-ticket" aria-label="Pedido">
         <div class="rail" aria-hidden="true"><span class="clip"></span></div>
         <article class="ticket" id="ticket">
-          <div class="ticket-meta mono"><span>PEDIDO 0${ex.number}</span><span>${time}</span></div>
-          <div class="ticket-client"><img src="${IMG}cliente-${ex.client}.webp" alt="" width="32" height="32"><span>Para ${ex.clientName}</span></div>
-          <div class="ticket-sep"></div>
+          <div class="ticket-head"><img src="${IMG}cliente-${ex.client}.webp" alt="" width="32" height="32"><span class="who">Para ${ex.clientName}</span><span class="mono">PEDIDO 0${ex.number} · ${time}</span></div>
           <div class="ticket-expr math" role="math" aria-label="${speak(ex.fTex)}">${renderMath(ex.fTex)}</div>
           <ol class="proc" id="proc" aria-label="Procedimiento"></ol>
           <div class="stamp" aria-hidden="true">SERVIDO</div>
@@ -472,8 +521,32 @@ function renderOptions(s) {
     bindPill(b, o);
     b.style.setProperty('--d', `${idx * 45}ms`);
   });
+  layoutOptions(box);
   $('.howto').textContent = matchMedia('(pointer: fine)').matches ? `Teclas 1 · ${s.options.length > 2 ? '2 · ' : ''}${s.options.length} o arrastra` : 'Toca o arrastra';
 }
+
+/* en el celular, las opciones cortas van en columnas para que todo quepa en pantalla */
+function layoutOptions(box) {
+  if (!box) return;
+  box.classList.remove('cols-2', 'cols-3', 'cols-4');
+  if (matchMedia('(min-width: 960px)').matches) return;
+  const pills = $$('.pill', box);
+  const n = pills.length;
+  if (n < 2) return;
+  const texts = pills.filter((p) => p.classList.contains('text'));
+  let tries = [Math.min(n, 4), 2];
+  if (texts.length) {
+    if (texts.some((p) => p.textContent.trim().length > 26)) return; // frases largas: una por fila
+    tries = [2];
+  }
+  for (const c of [...new Set(tries)]) {
+    box.classList.add('cols-' + c);
+    const fits = pills.every((p) => { const b = $('.pill-body', p); return b.scrollWidth <= p.clientWidth - 16; });
+    if (fits) return;
+    box.classList.remove('cols-' + c);
+  }
+}
+window.addEventListener('resize', () => { const box = $('#options'); if (box && $('.pedido')) layoutOptions(box); });
 
 /* ---------- arrastrar o tocar ---------- */
 function bindPill(b, o) {
@@ -684,20 +757,20 @@ async function serve() {
   const lastApertura = P.mode === 'apertura' && P.i >= P.list.length - 1;
   const nextLabel = lastInShift ? 'Terminar el nivel' : lastApertura ? 'Siguiente idea' : 'Siguiente pedido';
   const side = $('.col-side');
-  side.innerHTML = `
+  side.innerHTML = `<div class="tray done-tray">
     ${mentor(clean ? '¡Pedido servido! Lo construiste sin errores.' : '¡Pedido servido! Revisa los pasos donde dudaste.', 'celebra')}
-    <div class="spacer"></div>
     <div class="reward">
       <span class="tip">+${P.tips} propinas</span>
       <span class="stars" aria-label="${stars} de 3 estrellas">${[0, 1, 2].map((i) => starIcon(i < stars)).join('')}</span>
       <span class="badge">${clean ? 'Al primer intento' : `${P.errors} ${P.errors === 1 ? 'error' : 'errores'}`}</span>
     </div>
     <button class="btn primary" id="nextBtn" type="button">${nextLabel} ${icon('arrow')}</button>
-    <a class="btn ghost" href="${P.mode === 'estacion' ? '#/estaciones' : '#/niveles'}">${P.mode === 'estacion' ? 'Ver estaciones' : 'Ver los niveles'}</a>`;
+    <a class="btn ghost" href="${P.mode === 'estacion' ? '#/estaciones' : '#/niveles'}">${P.mode === 'estacion' ? 'Ver estaciones' : 'Ver los niveles'}</a>
+  </div>`;
   $('.ped-foot')?.remove();
   const nb = $('#nextBtn');
   nb.focus({ preventScroll: true });
-  setTimeout(() => guideNext(nb, { hand: isNovice() || S.served <= 2, scroll: true }), 700);
+  setTimeout(() => guideNext(nb, { hand: isNovice() || S.served <= 2 }), 700);
   nb.addEventListener('click', () => {
     if (lastInShift) { location.hash = `#/fin/${P.level}`; return; }
     if (lastApertura) { S.apertura.idea = Math.max(S.apertura.idea, 3); save(); location.hash = '#/apertura/4'; return; }
@@ -781,10 +854,12 @@ function viewComandas() {
     <article class="ticket small"><div class="ticket-meta mono"><span>PEDIDO 0${ex.number}</span><span>${C.round}/10</span></div>
       <div class="ticket-expr math" role="math" aria-label="${speak(ex.fTex)}">${renderMath(ex.fTex)}</div></article>
     <h2 class="question">¿Qué técnica pide este pedido?</h2>
-    <div class="tech-grid">${opts.map((t, i) => `<button class="tech-btn card" data-t="${t}" type="button"><span class="glyph">${renderMath(TECH[t].glyph)}</span><span>${TECH[t].name}</span></button>`).join('')}</div>
-    ${mentor('Mira la forma antes de calcular.', 'base')}
     <div class="spacer"></div>
+    <div class="tray">
+    ${mentor('Mira la forma antes de calcular.', 'base')}
+    <div class="tech-grid">${opts.map((t, i) => `<button class="tech-btn card" data-t="${t}" type="button"><span class="glyph">${renderMath(TECH[t].glyph)}</span><span>${TECH[t].name}</span></button>`).join('')}</div>
     <button class="btn primary hidden" id="nextC" type="button">${C.round >= 10 ? 'Ver resultado' : 'Siguiente comanda'} ${icon('arrow')}</button>
+    </div>
   </div>`;
   fitAll();
   guideGroup($('.tech-grid'), '.tech-btn', { strong: C.round === 1 && isNovice() });
@@ -799,7 +874,7 @@ function viewComandas() {
       setMentor(app, `Exacto. ${cue[tech]}`, 'celebra');
       $$('.tech-btn').forEach((x) => { x.disabled = true; if (x !== b) x.classList.add('dim'); });
       $('#nextC').classList.remove('hidden'); $('#nextC').focus({ preventScroll: true });
-      setTimeout(() => guideNext($('#nextC'), { hand: C.round <= 2, scroll: true }), 500);
+      setTimeout(() => guideNext($('#nextC'), { hand: C.round <= 2 }), 500);
       $('.topbar .counter span').textContent = String(C.ok);
     } else {
       sfx.bad(); b.classList.add('wrong'); b.disabled = true;
@@ -860,7 +935,7 @@ function miniQuiz(box, opts, { onRight, row = false } = {}) {
 }
 function nextIdeaButton(after, href) {
   after.insertAdjacentHTML('afterend', `<a class="btn primary next-idea" href="${href}">Siguiente idea ${icon('arrow')}</a>`);
-  setTimeout(() => guideNext($('.next-idea'), { scroll: true }), 500);
+  setTimeout(() => guideNext($('.next-idea')), 500);
 }
 
 function idea1() {
@@ -881,8 +956,8 @@ function idea1() {
         <div class="ap-side" aria-hidden="true">x se acerca a 2 desde arriba ↑</div>
       </div>
     </div>
-    ${mentor('Toca cada ? para calcular f(x). Mira a qué número se acerca.', 'saludo')}
-    <div class="options row" id="q1"></div>`, 'Acercarse');
+    <div class="tray">${mentor('Toca cada ? para calcular f(x). Mira a qué número se acerca.', 'saludo')}
+    <div class="options row" id="q1"></div></div>`, 'Acercarse');
   const shown = new Set();
   const next = () => order.find((v) => !shown.has(v));
   const cell = (v) => $(`.ap-cell[data-v="${v}"]`);
@@ -920,7 +995,6 @@ function idea1() {
           nextIdeaButton($('#q1'), '#/apertura/2');
         },
       });
-      $('#q1').scrollIntoView({ block: 'end', behavior: reduced() ? 'auto' : 'smooth' });
     }, 700);
   }
 }
@@ -942,8 +1016,8 @@ function idea2() {
       <p class="anatomy-help">Toca cada parte marcada</p>
       <ul class="anatomy-list" id="alist"></ul>
     </div>
-    ${mentor('Así se escribe un límite. Toca cada parte para saber qué significa.', 'base')}
-    <div class="options" id="q2"></div>`, 'Leer la notación');
+    <div class="tray">${mentor('Así se escribe un límite. Toca cada parte para saber qué significa.', 'base')}
+    <div class="options" id="q2"></div></div>`, 'Leer la notación');
   const seen = new Set();
   const nextPart = () => { const p = parts.find((x) => !seen.has(x[0])); return p && $(`.part[data-p="${p[0]}"]`); };
   $$('.part').forEach((b) => b.addEventListener('click', (e) => {
@@ -975,7 +1049,6 @@ function idea2() {
           nextIdeaButton($('#q2'), '#/apertura/3');
         },
       });
-      $('#q2').scrollIntoView({ block: 'end', behavior: reduced() ? 'auto' : 'smooth' });
     }, 600);
   }
 }
@@ -995,11 +1068,11 @@ function idea4() {
       <div class="rail" aria-hidden="true"><span class="clip"></span></div>
       <article class="ticket small"><div class="ticket-meta mono"><span>PEDIDO 0${ex.number}</span><span>${i + 1}/6</span></div>
         <div class="ticket-expr math" role="math" aria-label="${speak(ex.fTex)}">${renderMath(ex.fTex)}</div></article>
-      ${mentor(i === 0 ? 'Si el denominador no se anula, basta sustituir. Si sale 0/0, hay que transformar.' : 'Siguiente pedido.', 'base')}
+      <div class="tray">${mentor(i === 0 ? 'Si el denominador no se anula, basta sustituir. Si sale 0/0, hay que transformar.' : 'Siguiente pedido.', 'base')}
       <div class="options">
         <button class="pill text" data-k="num" type="button"><span class="pill-body">Da un número · sustitución directa</span><span class="mark"></span></button>
         <button class="pill text" data-k="indet" type="button"><span class="pill-body">Sale 0/0 · hay que transformar</span><span class="mark"></span></button>
-      </div>`, '¿Directo o transformar?');
+      </div></div>`, '¿Directo o transformar?');
     fitAll();
     guideGroup($('.apertura .options'), '.pill', { strong: i === 0 || isNovice() });
     $$('.pill').forEach((b) => b.addEventListener('click', async () => {
